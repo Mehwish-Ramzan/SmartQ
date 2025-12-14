@@ -1,0 +1,40 @@
+# Node modules
+node_modules/
+server/node_modules/
+
+# Builds
+dist/
+server/dist/
+build/
+
+# Env files (frontend + backend)
+.env
+.env.*
+*.env
+*.env.*
+
+server/.env
+server/.env.*
+server/*.env
+server/*.env.*
+
+# Firebase admin keys / service accounts
+server/firebaseAdminKey.json
+server/firebaseServiceAccount.json
+firebase-service-account*.json
+*.key
+*.pem
+public/firebase-messaging-sw.js
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# OS/editor junk
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
