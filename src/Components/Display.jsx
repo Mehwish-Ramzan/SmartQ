@@ -29,9 +29,11 @@ const Display = () => {
   const [activity, setActivity] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const [error, setError] = useState(null);
 
   const fetchDisplayFeed = useCallback(async () => {
     try {
+      setError(null);
       const res = await fetch(`${API_BASE_URL}/api/queue/display-feed`);
       if (!res.ok) throw new Error("Failed to load display feed");
       const data = await res.json();
@@ -39,6 +41,9 @@ const Display = () => {
       setActivity(data.recentActivity || []);
     } catch (err) {
       console.error(err);
+      setError(
+        "Unable to connect to server right now. Screen will auto-retry."
+      );
     } finally {
       setLoading(false);
     }
@@ -108,8 +113,7 @@ const Display = () => {
 
   // 👉 total waiting, so header me proper text aa jaye
   const totalWaiting = counters.reduce(
-    (sum, c) =>
-      sum + (typeof c.waitingCount === "number" ? c.waitingCount : 0),
+    (sum, c) => sum + (typeof c.waitingCount === "number" ? c.waitingCount : 0),
     0
   );
 

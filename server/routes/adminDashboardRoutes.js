@@ -9,6 +9,48 @@ import { sendTurnNotification } from "../fcm.js";
 
 const router = express.Router();
 
+// Active "called" tickets se counters ka nowServingToken calculate karo
+async function buildCountersForDisplay() {
+  // counters ko order ke sath lao
+  let counters = await Counter.find().sort({ createdAt: 1 }).lean();
+
+  // agar pehli dafa hai to default 3 counters create karo
+  if (!counters.length) {
+    const created = await Counter.insertMany([
+      { name: "Counter 1" },
+      { name: "Counter 2" },
+      { name: "Counter 3" },
+    ]);
+
+    counters = created.map((c) =>
+      typeof c.toObject === "function" ? c.toObject() : c
+    );
+  }
+
+  // sirf abhi "called" tickets
+  const activeTickets = await QueueTicket.find({ status: "called" }).lean();
+
+  return counters.map((counter) => {
+    const active = activeTickets.find((t) => {
+      const matchById =
+        t.counter &&
+        counter._id &&
+        t.counter.toString() === counter._id.toString();
+
+      const matchByName =
+        t.counterName && counter.name && t.counterName === counter.name;
+
+      return matchById || matchByName;
+    });
+
+    return {
+      ...counter,
+      // agar active ticket mila to uska tokenNumber, warna null
+      nowServingToken: active ? active.tokenNumber : null,
+    };
+  });
+}
+
 function buildQueueFilter({ status, q }) {
   const filter = {};
 
@@ -51,7 +93,8 @@ router.get("/queue", requireAdminAuth, async (req, res) => {
 // GET /api/admin/counters
 router.get("/counters", requireAdminAuth, async (_req, res) => {
   try {
-    let counters = await Counter.find().lean();
+    const counters = await buildCountersForDisplay();
+    // let counters = await Counter.find().lean();
 
     if (!counters.length) {
       counters = await Counter.insertMany([

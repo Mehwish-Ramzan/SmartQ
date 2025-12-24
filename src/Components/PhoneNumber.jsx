@@ -192,7 +192,7 @@ const PhoneNumber = () => {
                   disabled={loading}
                   className="w-full rounded-2xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-indigo-400/40 transition hover:bg-indigo-700 hover:shadow-lg disabled:cursor-not-allowed"
                 >
-                  {loading ? "Joining..." : "Skip &amp; Continue"}
+                  {loading ? "Joining..." : "Skip & Continue"}
                 </button>
               </div>
 

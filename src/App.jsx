@@ -35,7 +35,6 @@ const AppLayout = () => {
           <Route path="/" element={<Landing />} />
           <Route path="/join" element={<JoinQueue />} />
           <Route path="/join/phone" element={<PhoneNumber />} />
-          {/* Sprint 4: confirmation / queue status */}
           <Route path="/queue" element={<QueueStatus />} />
           <Route path="/display" element={<Display />} />
           <Route path="/admin/setup" element={<AdminSetup />} />

@@ -144,16 +144,62 @@ router.get("/status/:id", async (req, res) => {
 
 // GET /api/queue/display-feed
 // Public: data for TV display screen
+// router.get("/display-feed", async (_req, res) => {
+//   try {
+//     const counters = await Counter.find().sort({ createdAt: 1 }).lean();
+
+//     const recentActivity = await Activity.find({ type: "called" })
+//       .sort({ createdAt: -1 })
+//       .limit(10)
+//       .lean();
+
+//     res.json({ counters, recentActivity });
+//   } catch (err) {
+//     console.error("GET /api/queue/display-feed error:", err);
+//     res.status(500).json({ message: "Failed to load display feed" });
+//   }
+// });
+
+// GET /api/queue/display-feed
+// Public: data for TV display screen
 router.get("/display-feed", async (_req, res) => {
   try {
-    const counters = await Counter.find().sort({ createdAt: 1 }).lean();
+    // 1) Counters, recent activity, aur ACTIVE (called) tickets ek sath lao
+    const [counters, recentActivity, activeTickets] = await Promise.all([
+      Counter.find().sort({ createdAt: 1 }).lean(),
+      Activity.find({ type: "called" })
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .lean(),
+      QueueTicket.find({ status: "called" }).lean(), // sirf called tickets
+    ]);
 
-    const recentActivity = await Activity.find({ type: "called" })
-      .sort({ createdAt: -1 })
-      .limit(10)
-      .lean();
+    // 2) Har counter ke liye dekho koi "called" ticket hai ya nahi
+    const countersForDisplay = counters.map((counter) => {
+      const active = activeTickets.find((t) => {
+        const matchById =
+          t.counter &&
+          counter._id &&
+          t.counter.toString() === counter._id.toString();
 
-    res.json({ counters, recentActivity });
+        const matchByName =
+          t.counterName && counter.name && t.counterName === counter.name;
+
+        return matchById || matchByName;
+      });
+
+      return {
+        ...counter,
+        // agar active ticket mila to uska tokenNumber, warna null
+        nowServingToken: active ? active.tokenNumber : null,
+      };
+    });
+
+    // 3) Frontend ko updated counters + recentActivity bhejo
+    res.json({
+      counters: countersForDisplay,
+      recentActivity,
+    });
   } catch (err) {
     console.error("GET /api/queue/display-feed error:", err);
     res.status(500).json({ message: "Failed to load display feed" });
