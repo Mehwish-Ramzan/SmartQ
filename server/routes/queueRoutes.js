@@ -7,7 +7,6 @@ import { getIO } from "../socket.js";
 
 const router = express.Router();
 
-// Helper: next token number for *today*
 async function getNextTokenNumber() {
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
@@ -22,12 +21,19 @@ async function getNextTokenNumber() {
 }
 
 // POST /api/queue/join
-// Public: user joins the queue
+
+
 router.post("/join", async (req, res) => {
   try {
-    const { fullName, phone, deviceToken } = req.body || {};
+    const {
+      fullName,
+      phone,
+      deviceToken,
+      serviceKey,
+      serviceLabel,
+      serviceNote,
+    } = req.body || {};
 
-    // Full name required, phone optional
     if (!fullName) {
       return res
         .status(400)
@@ -37,35 +43,32 @@ router.post("/join", async (req, res) => {
     const tokenNumber = await getNextTokenNumber();
 
     const ticket = await QueueTicket.create({
-      fullName: fullName.trim(),
-      phone: phone || "",
+      fullName: String(fullName).trim(),
+      phone: phone ? String(phone).trim() : "",
       tokenNumber,
       status: "waiting",
       joinedAt: new Date(),
-      deviceToken,
-      deviceToken: deviceToken || "", // 👈 SAVE TOKEN HERE
+      deviceToken: deviceToken ? String(deviceToken) : "",
+
+      serviceKey: serviceKey ? String(serviceKey) : "",
+      serviceLabel: serviceLabel ? String(serviceLabel) : "",
+      serviceNote: serviceNote ? String(serviceNote) : "",
     });
 
-    // how many people are ahead of this ticket
     const aheadCount = await QueueTicket.countDocuments({
       status: "waiting",
       joinedAt: { $lt: ticket.joinedAt },
     });
 
-    // Recompute global waiting count and sync to all counters
-    const waitingCount = await QueueTicket.countDocuments({
-      status: "waiting",
-    });
+    const waitingCount = await QueueTicket.countDocuments({ status: "waiting" });
     await Counter.updateMany({}, { waitingCount });
 
-    // Log "joined" activity
     const activity = await Activity.create({
       type: "joined",
       message: `Token #${ticket.tokenNumber} joined the queue`,
       ticket: ticket._id,
     });
 
-    // Broadcast to admin dashboard / displays via socket.io
     try {
       const io = getIO();
       const counters = await Counter.find().lean();
@@ -78,6 +81,9 @@ router.post("/join", async (req, res) => {
           tokenNumber: ticket.tokenNumber,
           status: ticket.status,
           joinedAt: ticket.joinedAt,
+          serviceKey: ticket.serviceKey,
+          serviceLabel: ticket.serviceLabel,
+          serviceNote: ticket.serviceNote,
         },
         activity,
       });
@@ -94,6 +100,9 @@ router.post("/join", async (req, res) => {
         phone: ticket.phone,
         tokenNumber: ticket.tokenNumber,
         status: ticket.status,
+        serviceKey: ticket.serviceKey,
+        serviceLabel: ticket.serviceLabel,
+        serviceNote: ticket.serviceNote,
       },
       position: aheadCount + 1,
       ticketId: ticket._id,
@@ -106,7 +115,6 @@ router.post("/join", async (req, res) => {
 });
 
 // GET /api/queue/status/:id
-// Public: specific user checks their ticket status
 router.get("/status/:id", async (req, res) => {
   try {
     const ticket = await QueueTicket.findById(req.params.id).lean();
@@ -115,7 +123,6 @@ router.get("/status/:id", async (req, res) => {
     }
 
     let position = 0;
-
     if (ticket.status === "waiting") {
       const aheadCount = await QueueTicket.countDocuments({
         status: "waiting",
@@ -133,6 +140,10 @@ router.get("/status/:id", async (req, res) => {
         status: ticket.status,
         counterName: ticket.counterName || null,
         joinedAt: ticket.joinedAt,
+
+        serviceKey: ticket.serviceKey || "",
+        serviceLabel: ticket.serviceLabel || "",
+        serviceNote: ticket.serviceNote || "",
       },
       position,
     });
@@ -142,39 +153,69 @@ router.get("/status/:id", async (req, res) => {
   }
 });
 
+// DELETE /api/queue/ticket/:id  (Public delete)
+router.delete("/ticket/:id", async (req, res) => {
+  try {
+    const ticket = await QueueTicket.findById(req.params.id);
+    if (!ticket) return res.status(404).json({ message: "Ticket not found" });
+
+    // Optional rule: served tickets ko delete block
+    if (ticket.status === "served") {
+      return res.status(409).json({ message: "Served token cannot be deleted." });
+    }
+
+    const ticketId = ticket._id;
+    const tokenNumber = ticket.tokenNumber;
+    const counterId = ticket.counter;
+
+    await QueueTicket.deleteOne({ _id: ticketId });
+
+    // Update waiting count
+    const waitingCount = await QueueTicket.countDocuments({ status: "waiting" });
+    await Counter.updateMany({}, { waitingCount });
+
+    // If this token was on a counter, clear it (optional)
+    if (counterId) {
+      await Counter.updateOne({ _id: counterId }, { nowServingToken: null });
+    }
+
+    const activity = await Activity.create({
+      type: "deleted",
+      message: `Token #${tokenNumber} deleted by user`,
+      ticket: ticketId,
+    });
+
+    // Socket broadcast
+    try {
+      const io = getIO();
+      const counters = await Counter.find().lean();
+
+      io.emit("ticket:deleted", { ticketId: String(ticketId), tokenNumber });
+      io.emit("counters:updated", { counters });
+      io.emit("activity:created", { activity });
+    } catch (socketErr) {
+      console.error("Socket emit ticket:deleted failed:", socketErr.message);
+    }
+
+    return res.json({ message: "Token deleted", tokenNumber });
+  } catch (err) {
+    console.error("DELETE /api/queue/ticket error:", err);
+    res.status(500).json({ message: "Failed to delete token" });
+  }
+});
+
 // GET /api/queue/display-feed
-// Public: data for TV display screen
-// router.get("/display-feed", async (_req, res) => {
-//   try {
-//     const counters = await Counter.find().sort({ createdAt: 1 }).lean();
-
-//     const recentActivity = await Activity.find({ type: "called" })
-//       .sort({ createdAt: -1 })
-//       .limit(10)
-//       .lean();
-
-//     res.json({ counters, recentActivity });
-//   } catch (err) {
-//     console.error("GET /api/queue/display-feed error:", err);
-//     res.status(500).json({ message: "Failed to load display feed" });
-//   }
-// });
-
-// GET /api/queue/display-feed
-// Public: data for TV display screen
 router.get("/display-feed", async (_req, res) => {
   try {
-    // 1) Counters, recent activity, aur ACTIVE (called) tickets ek sath lao
     const [counters, recentActivity, activeTickets] = await Promise.all([
       Counter.find().sort({ createdAt: 1 }).lean(),
       Activity.find({ type: "called" })
         .sort({ createdAt: -1 })
         .limit(10)
         .lean(),
-      QueueTicket.find({ status: "called" }).lean(), // sirf called tickets
+      QueueTicket.find({ status: "called" }).lean(),
     ]);
 
-    // 2) Har counter ke liye dekho koi "called" ticket hai ya nahi
     const countersForDisplay = counters.map((counter) => {
       const active = activeTickets.find((t) => {
         const matchById =
@@ -190,12 +231,10 @@ router.get("/display-feed", async (_req, res) => {
 
       return {
         ...counter,
-        // agar active ticket mila to uska tokenNumber, warna null
         nowServingToken: active ? active.tokenNumber : null,
       };
     });
 
-    // 3) Frontend ko updated counters + recentActivity bhejo
     res.json({
       counters: countersForDisplay,
       recentActivity,

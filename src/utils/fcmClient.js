@@ -4,28 +4,19 @@ import { getMessagingSafe } from "../firebase";
 
 let foregroundListenerAttached = false;
 
-// make sure SW is registered and active
 async function ensureSw() {
   if (typeof window === "undefined") return null;
-  if (!("serviceWorker" in navigator)) {
-    console.warn("[FCM] Service workers not supported");
-    return null;
-  }
+  if (!("serviceWorker" in navigator)) return null;
 
   try {
-    let reg = await navigator.serviceWorker.getRegistration(
-      "/firebase-messaging-sw.js"
-    );
+    // ✅ better: don't pass script path in getRegistration
+    let reg = await navigator.serviceWorker.getRegistration();
 
     if (!reg) {
-      console.log("[FCM] Registering firebase-messaging-sw.js ...");
-      reg = await navigator.serviceWorker.register(
-        "/firebase-messaging-sw.js"
-      );
+      reg = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
     }
 
     const readyReg = await navigator.serviceWorker.ready;
-    console.log("[FCM] Service worker ready:", readyReg);
     return readyReg;
   } catch (err) {
     console.error("[FCM] SW registration failed:", err);
@@ -33,28 +24,54 @@ async function ensureSw() {
   }
 }
 
+// ✅ NEW: attach listener even if token already exists
+export async function attachForegroundListener() {
+  try {
+    const messaging = await getMessagingSafe();
+    if (!messaging) return;
+
+    if (foregroundListenerAttached) return;
+
+    onMessage(messaging, (payload) => {
+      console.log("[FCM] Foreground message:", payload);
+
+      const title =
+        payload?.notification?.title ||
+        payload?.data?.title ||
+        "SmartQ";
+
+      const body =
+        payload?.notification?.body ||
+        payload?.data?.body ||
+        "";
+
+      if (Notification.permission === "granted") {
+        new Notification(title, {
+          body,
+          icon: "/Logo2.png",
+        });
+      }
+    });
+
+    foregroundListenerAttached = true;
+  } catch (e) {
+    console.warn("[FCM] attachForegroundListener failed:", e);
+  }
+}
+
 export async function requestFcmToken() {
   try {
     if (typeof window === "undefined") return null;
-    if (!("Notification" in window)) {
-      console.warn("[FCM] Notifications not supported");
-      return null;
-    }
+    if (!("Notification" in window)) return null;
 
     const messaging = await getMessagingSafe();
     if (!messaging) return null;
 
     const permission = await Notification.requestPermission();
-    if (permission !== "granted") {
-      console.warn("[FCM] Notification permission:", permission);
-      return null;
-    }
+    if (permission !== "granted") return null;
 
     const swReg = await ensureSw();
-    if (!swReg) {
-      console.warn("[FCM] No service worker registration; skipping token");
-      return null;
-    }
+    if (!swReg) return null;
 
     const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
 
@@ -65,22 +82,8 @@ export async function requestFcmToken() {
 
     console.log("[FCM] FCM token:", token);
 
-    // Attach foreground listener once per page
-    if (!foregroundListenerAttached) {
-      onMessage(messaging, (payload) => {
-        console.log("[FCM] Foreground message:", payload);
-        const { title, body } = payload.notification || {};
-
-        if (Notification.permission === "granted" && title) {
-          new Notification(title, {
-            body: body || "",
-            icon: "/Logo2.png",
-          });
-        }
-      });
-
-      foregroundListenerAttached = true;
-    }
+    // ✅ make sure listener is attached
+    await attachForegroundListener();
 
     return token;
   } catch (err) {

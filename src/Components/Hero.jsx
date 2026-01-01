@@ -2,7 +2,6 @@
 // Main hero block from Sprint 1.
 // Get Your Token now navigates to the Join Queue screen
 
-
 import { useNavigate } from "react-router-dom";
 import QRCode from "react-qr-code";
 
@@ -19,7 +18,7 @@ const Hero = () => {
     navigate("/display");
   };
 
-   const joinUrl =
+  const joinUrl =
     typeof window !== "undefined"
       ? `${window.location.origin}/join`
       : "https://example.com/join";

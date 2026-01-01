@@ -16,6 +16,10 @@ const PhoneNumber = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const serviceKey = location.state?.serviceKey || "";
+  const serviceLabel = location.state?.serviceLabel || "";
+  const serviceNote = location.state?.serviceNote || "";
+
   // Full name from previous step
   const fullName = location.state?.fullName || "";
 
@@ -24,6 +28,9 @@ const PhoneNumber = () => {
     const payload = {
       fullName: fullName?.trim() || "Guest",
       phone: skipPhone ? "" : phone.trim(),
+      serviceKey,
+      serviceLabel,
+      serviceNote,
     };
 
     console.log(

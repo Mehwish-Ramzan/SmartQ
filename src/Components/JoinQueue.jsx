@@ -1,104 +1,112 @@
-// JoinQueue.jsx
-// Sprint 2: Full name step. Now routes to phone step on Next.
-
-import React, { useState } from "react";
+// src/Components/JoinQueue.jsx
+import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-
+import { SERVICE_OPTIONS } from "../constants/services";
 
 const JoinQueue = () => {
   const navigate = useNavigate();
+
   const [fullName, setFullName] = useState("");
+  const [serviceKey, setServiceKey] = useState(SERVICE_OPTIONS[0]?.value || "cnic_new");
+  const [serviceNote, setServiceNote] = useState("");
+  const [error, setError] = useState("");
 
-  const isValid = fullName.trim().length > 0;
+  const selectedService = useMemo(() => {
+    return SERVICE_OPTIONS.find((s) => s.value === serviceKey);
+  }, [serviceKey]);
 
-  const handleBack = () => {
-    // Back always returns to landing page
-    navigate("/");
-  };
+  const handleContinue = () => {
+    setError("");
 
-  const handleSubmit = (event) => {
-    event.preventDefault();
-    if (!isValid) return;
+    if (!fullName.trim()) {
+      setError("Full name is required.");
+      return;
+    }
 
-    // Go to Sprint 3 (phone number step) and carry name forward for later use
-    navigate("/join/phone", { state: { fullName: fullName.trim() } });
+    if (serviceKey === "other" && !serviceNote.trim()) {
+      setError("Please type your service in the manual field.");
+      return;
+    }
+
+    navigate("/join/phone", {
+      state: {
+        fullName: fullName.trim(),
+        serviceKey,
+        serviceLabel: selectedService?.label || "",
+        serviceNote: serviceNote.trim(),
+      },
+    });
   };
 
   return (
-    <section className="py-10 md:py-14">
+    <section className="py-6 md:py-10">
       <div className="mx-auto max-w-6xl px-4">
-        {/* Top row: Back + SmartQ title */}
-        <div className="mb-10 flex items-center justify-between">
-          <button
-            type="button"
-            onClick={handleBack}
-            className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 transition hover:text-slate-900"
-          >
-            <svg
-              className="h-4 w-4"
-              viewBox="0 0 20 20"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M11.75 5L7 9.75L11.75 14.5"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+        <div className="mx-auto w-full max-w-md rounded-3xl bg-white px-7 py-8 shadow-xl shadow-slate-200">
+          <h1 className="text-xl font-semibold text-slate-900">Join Queue</h1>
+          <p className="mt-1 text-sm text-slate-600">
+            Select your service so staff can route you faster (NADRA-style flow).
+          </p>
+
+          <div className="mt-6 space-y-5">
+            {/* Full Name */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-800">Full Name</label>
+              <input
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="e.g., Mehwish Khan"
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm outline-none transition focus:border-slate-300 focus:bg-white focus:ring-2 focus:ring-indigo-200"
               />
-            </svg>
-            <span>Back</span>
-          </button>
+            </div>
 
-          <h2 className="flex-1 text-center text-sm font-semibold text-slate-800">
-            SmartQ
-          </h2>
-
-          <span className="w-16" />
-        </div>
-
-        {/* Centered card */}
-        <div className="flex justify-center">
-          <div className="w-full max-w-md rounded-3xl bg-white px-8 py-10 shadow-xl shadow-slate-200">
-            <h1 className="text-xl font-semibold text-slate-900">
-              Join the Queue
-            </h1>
-            <p className="mt-2 text-sm text-slate-600">
-              Please enter your name to get started.
-            </p>
-
-            <form onSubmit={handleSubmit} className="mt-6 space-y-6">
-              <div className="space-y-2">
-                <label
-                  htmlFor="fullName"
-                  className="text-sm font-medium text-slate-800"
-                >
-                  Full Name <span className="text-red-500">*</span>
-                </label>
-
-                <input
-                  id="fullName"
-                  type="text"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Enter your full name"
-                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-indigo-200 placeholder:text-slate-400"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={!isValid}
-                className={`mt-2 w-full rounded-2xl py-2.5 text-sm font-semibold text-white shadow-md transition ${
-                  isValid
-                    ? "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-400/40"
-                    : "bg-indigo-300 cursor-not-allowed shadow-none"
-                }`}
+            {/* Service dropdown */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-800">Service</label>
+              <select
+                value={serviceKey}
+                onChange={(e) => setServiceKey(e.target.value)}
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm outline-none transition focus:border-slate-300 focus:bg-white focus:ring-2 focus:ring-indigo-200"
               >
-                Next
-              </button>
-            </form>
+                {SERVICE_OPTIONS.map((s) => (
+                  <option key={s.value} value={s.value}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-slate-500">
+                Selected: <span className="font-semibold text-slate-700">{selectedService?.label}</span>
+              </p>
+            </div>
+
+            {/* Manual input (parallel) */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-800">
+                Service details (optional)
+              </label>
+              <input
+                value={serviceNote}
+                onChange={(e) => setServiceNote(e.target.value)}
+                placeholder='e.g., "Address change" or "Urgent renewal"'
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm outline-none transition focus:border-slate-300 focus:bg-white focus:ring-2 focus:ring-indigo-200"
+              />
+              <p className="text-xs text-slate-500">
+                If you selected “Other”, this field becomes required.
+              </p>
+            </div>
+
+            {error && <p className="text-sm font-semibold text-rose-600">{error}</p>}
+
+            <button
+              type="button"
+              onClick={handleContinue}
+              className="w-full rounded-2xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-indigo-400/40 transition hover:bg-indigo-700"
+            >
+              Continue
+            </button>
+
+            <p className="text-xs text-slate-500">
+              Next: phone number (optional), then you’ll get your token.
+            </p>
           </div>
         </div>
       </div>

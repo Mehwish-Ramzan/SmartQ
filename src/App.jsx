@@ -13,7 +13,11 @@ import Display from "./Components/Display.jsx";
 import AdminSetup from "./Components/AdminSetup";
 import AdminLogin from "./Components/AdminLogin";
 import AdminDashboard from "./Components/AdminDashboard";
+import MyToken from "./Components/MyToken.jsx";
 
+import { attachForegroundListener } from "./utils/fcmClient";
+
+attachForegroundListener(); // ✅ app start pe
 
 const AppLayout = () => {
   const location = useLocation();
@@ -40,6 +44,8 @@ const AppLayout = () => {
           <Route path="/admin/setup" element={<AdminSetup />} />
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path ="*" element={<p className="p-4 text-center">404 - Page Not Found</p>} />
+          <Route path="/my-token" element={<MyToken />} />
         </Routes>
       </main>
 

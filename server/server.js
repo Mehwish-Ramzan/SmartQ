@@ -10,9 +10,10 @@ import http from "http";
 import { connectDB } from "./config/db.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import queueRoutes from "./routes/queueRoutes.js";
-import adminDashboardRoutes from "./routes/adminDashBoardRoutes.js";
+import adminDashboardRoutes from "./routes/adminDashboardRoutes.js";
 import { notFound, errorHandler } from "./middleware/errorMiddleware.js";
 import { initSocket } from "./socket.js";
+
 
 dotenv.config();
 connectDB();
@@ -43,6 +44,7 @@ app.get("/", (req, res) => {
 app.use("/api/admin", adminRoutes);
 app.use("/api/admin", adminDashboardRoutes);
 app.use("/api/queue", queueRoutes);
+
 
 // Error handlers
 app.use(notFound);

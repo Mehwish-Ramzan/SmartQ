@@ -5,7 +5,7 @@ const activitySchema = new mongoose.Schema(
   {
     type: {
       type: String,
-      enum: ["called", "served", "skipped", "joined", "recalled"],
+      enum: ["called", "served", "skipped", "joined", "recalled", "deleted"],
       required: true,
     },
     message: {

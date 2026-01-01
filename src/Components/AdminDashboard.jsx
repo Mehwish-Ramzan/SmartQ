@@ -36,7 +36,9 @@ const AdminDashboard = () => {
   const [callingNext, setCallingNext] = useState(false);
   const [connected, setConnected] = useState(true);
 
-  const [announcementText, setAnnouncementText] = useState(""); // 👈 NEW
+  const [announcementText, setAnnouncementText] = useState("");
+
+  const [callingId, setCallingId] = useState(null);
 
   const token = localStorage.getItem(TOKEN_KEY);
 
@@ -163,6 +165,51 @@ const AdminDashboard = () => {
       alert("Could not call next ticket. Check console for details.");
     } finally {
       setCallingNext(false);
+    }
+  };
+
+  const handleCallTicket = async (ticketId) => {
+    if (!ticketId) return;
+    if (!token) {
+      handleUnauthorized();
+      return;
+    }
+
+    try {
+      setCallingId(ticketId);
+
+      const res = await fetch(
+        `${API_BASE_URL}/api/admin/queue/${ticketId}/call-next`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      const data = await res.json().catch(() => ({}));
+
+      if (res.status === 401) {
+        handleUnauthorized();
+        return;
+      }
+      if (!res.ok) {
+        throw new Error(data.message || "Call failed");
+      }
+
+      if (data.ticket) {
+        const t = data.ticket;
+        const counterLabel = t.counterName || t.counter || "the counter";
+        speak(
+          `Token number ${t.tokenNumber}, please proceed to ${counterLabel}.`
+        );
+      }
+
+      await fetchDashboardData();
+    } catch (err) {
+      console.error(err);
+      alert(err.message || "Could not call ticket");
+    } finally {
+      setCallingId(null);
     }
   };
 
@@ -456,7 +503,8 @@ const AdminDashboard = () => {
 
                           const isCallableStatus = t.status === "called";
                           const isSkippedStatus = t.status === "skipped";
-
+                          const isWaitingStatus = t.status === "waiting";
+                          
                           return (
                             <tr
                               key={t._id || t.tokenNumber || idx}
@@ -499,7 +547,20 @@ const AdminDashboard = () => {
 
                               {/* Actions */}
                               <td className="px-3 py-2 text-xs">
-                                {isCallableStatus ? (
+                                {isWaitingStatus ? (
+                                  <button
+                                    type="button"
+                                    title="Call this token"
+                                    onClick={() => handleCallTicket(t._id)}
+                                    disabled={callingId === t._id}
+                                    className="inline-flex items-center justify-center rounded-full bg-indigo-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
+                                  >
+                                    <span className="mr-1">📞</span>
+                                    {callingId === t._id
+                                      ? "Calling..."
+                                      : "Call"}
+                                  </button>
+                                ) : isCallableStatus ? (
                                   <div className="flex flex-wrap gap-2">
                                     <button
                                       type="button"

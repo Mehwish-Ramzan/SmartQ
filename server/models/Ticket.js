@@ -24,6 +24,11 @@ const ticketSchema = new mongoose.Schema(
 
     joinedAt: { type: Date, default: Date.now },
 
+    // server/models/Ticket.js (add these fields in schema)
+    serviceKey: { type: String, default: "" },
+    serviceLabel: { type: String, default: "" },
+    serviceNote: { type: String, default: "" },
+
     // For TTL auto-delete after 48 hours:
     expiresAt: {
       type: Date,
